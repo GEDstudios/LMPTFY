@@ -3,6 +3,7 @@ import { MAX_PROMPT_LENGTH, normalizePrompt, buildShareURL, readPromptFromHash, 
 const $ = id => document.getElementById(id);
 const $$ = selector => [...document.querySelectorAll(selector)];
 const input = $('promptInput');
+const MIN_STAGE_DURATION_MS = 3000;
 const storage = {
   get(key, fallback) { try { return JSON.parse(localStorage.getItem(`lmptfy:${key}`)) ?? fallback; } catch { return fallback; } },
   set(key, value) { try { localStorage.setItem(`lmptfy:${key}`, JSON.stringify(value)); } catch { /* Private browsing can disable storage. */ } },
@@ -210,6 +211,11 @@ function setStep(index, text, detail) {
   $('guideText').textContent = text;
   $('guideDetail').textContent = detail;
   $('guideStep').textContent = `STEP 0${index + 1} / 03`;
+  return performance.now();
+}
+async function waitForStep(startedAt, signal) {
+  const remaining = MIN_STAGE_DURATION_MS - (performance.now() - startedAt);
+  await delay(Math.max(0, remaining), signal);
 }
 function moveCursor(x, y, duration = 800) {
   const cursor = $('demoCursor');
@@ -229,7 +235,7 @@ function orbitCursor(rect, signal) {
       reject(new DOMException('Cancelled', 'AbortError'));
     }
     function frame(now) {
-      const progress = Math.min(1, Math.max(0, now - startedAt) / 1550);
+      const progress = Math.min(1, Math.max(0, now - startedAt) / 2200);
       const point = cursorOrbitPoint(rect, { width: window.innerWidth, height: window.innerHeight }, progress);
       cursor.style.transform = `translate(${point.x.toFixed(2)}px, ${point.y.toFixed(2)}px) rotate(${point.tilt.toFixed(2)}deg)`;
       if (progress === 1) {
@@ -295,7 +301,7 @@ async function playPrompt(prompt, speed = 'slow', preview = false) {
   window.scrollTo(0, 0);
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) { finishPlayback(); return; }
   $('demoGuide').hidden = false;
-  setStep(0, 'Behold. A text box.', 'Click it. We believe in you.');
+  let stepStartedAt = setStep(0, 'Behold. A text box.', 'Click it. We believe in you.');
   const cursor = $('demoCursor');
   cursor.hidden = false;
   try {
@@ -305,7 +311,8 @@ async function playPrompt(prompt, speed = 'slow', preview = false) {
     await delay(500, signal);
     clickCursor(); input.focus({ preventScroll: true });
     await delay(300, signal);
-    setStep(1, 'Now, use your words.', 'The very same question you just asked someone else.');
+    await waitForStep(stepStartedAt, signal);
+    stepStartedAt = setStep(1, 'Now, use your words.', 'The very same question you just asked someone else.');
     moveCursor(box.right - 40, box.bottom + 48, 450);
     await delay(150, signal);
     const plan = typingPlan(state.prompt, speed);
@@ -326,11 +333,13 @@ async function playPrompt(prompt, speed = 'slow', preview = false) {
     }
     $('sendButton').disabled = false;
     await delay(400, signal);
-    setStep(2, 'Press the big arrow.', 'Truly groundbreaking stuff.');
+    await waitForStep(stepStartedAt, signal);
+    stepStartedAt = setStep(2, 'Press the big arrow.', 'Truly groundbreaking stuff.');
     await delay(350, signal);
     box = $('sendButton').getBoundingClientRect();
     moveCursor(box.left + box.width / 2, box.top + box.height / 2, 750);
     await delay(850, signal);
+    await waitForStep(stepStartedAt, signal);
     clickCursor();
     await delay(350, signal);
     finishPlayback();

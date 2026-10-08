@@ -89,11 +89,11 @@ test('typing preserves Unicode and stays within its time budget, including punct
         const frame = plan.chars.slice(i, i + plan.chunk).join('');
         frames.push(frame);
         const pause = Math.min(plan.interval + (/[.,?!]$/.test(frame) ? 60 : 0), plan.maxDelay);
-        assert.ok(pause <= 125, 'Typing must keep moving, including at punctuation');
+        assert.ok(pause <= 150, 'Typing must keep moving, including at punctuation');
         elapsed += pause;
       }
       assert.equal(frames.join(''), prompt);
-      assert.ok(elapsed <= (speed === 'slow' ? 9000 : 6500) + 0.001);
+      assert.ok(elapsed <= (speed === 'slow' ? 10800 : 7800) + 0.001);
     }
   }
 });
@@ -105,8 +105,8 @@ test('the default keeps a deliberate cadence without making an ordinary prompt d
   const normal = typingPlan(prompt, 'normal');
   const slowDuration = slow.chars.length / slow.chunk * slow.interval;
   const normalDuration = normal.chars.length / normal.chunk * normal.interval;
-  assert.ok(slowDuration >= 5000 && slowDuration <= 7000);
-  assert.ok(normalDuration >= 3000 && normalDuration < slowDuration);
+  assert.ok(slowDuration >= 7000 && slowDuration <= 8500);
+  assert.ok(normalDuration >= 4000 && normalDuration < slowDuration);
 });
 
 test('normalization is predictable for empty values and the prompt limit', () => {

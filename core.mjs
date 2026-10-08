@@ -61,8 +61,8 @@ export function startChatGPTHandoff(prompt, { onTick, navigate, setTimer = setTi
 
 export function typingPlan(prompt, speed) {
   const chars = Array.from(prompt);
-  const duration = speed === 'slow' ? 9000 : 6500;
-  const interval = speed === 'slow' ? 65 : 42;
+  const duration = speed === 'slow' ? 10800 : 7800;
+  const interval = speed === 'slow' ? 78 : 50.4;
   const chunk = Math.max(1, Math.ceil(chars.length * interval / duration));
   const frames = Math.max(1, Math.ceil(chars.length / chunk));
   return { chars, interval, chunk, duration, maxDelay: duration / frames };
