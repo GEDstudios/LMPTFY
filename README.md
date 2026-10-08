@@ -1,6 +1,6 @@
 # Let Me Prompt That For You
 
-A ChatGPT-style demonstration: a cursor clicks the message box, types your question, and presses send. After the reveal and a three-second countdown, the page redirects to ChatGPT with the question passed to its draft input. Replay or Stay here cancels the countdown.
+A minimal ChatGPT-style demonstration: a cursor slowly clicks the message box, types your question, and presses send. Large sarcastic captions guide each step, with an oversized final punchline. After the reveal and a six-second countdown, the page redirects to ChatGPT with the question passed to its draft input. Replay or Stay here cancels the countdown.
 
 This export is ready for GitHub Pages. It needs no build step, dependencies, API keys, or backend.
 
@@ -22,7 +22,7 @@ New prompt links automatically use the address where the site is running, includ
 
 - `index.html` — interface and page content
 - `style.css` — responsive layout, light/dark appearance, and animation styling
-- `app.js` — UI, prompt history, playback, sharing, and redirect controls
+- `app.js` — UI, playback, sharing, and redirect controls
 - `core.mjs` — link encoding, ChatGPT destination, and redirect countdown
 - `favicon.svg` — browser tab icon
 - `.nojekyll` — serve the site as static files
@@ -48,8 +48,8 @@ No `npm install` is needed. Checks cover Unicode prompt links, malformed links, 
 
 ## Behavior and customization
 
-The ChatGPT handoff uses `https://chatgpt.com/?prompt=...`. The question is URL-encoded; the page does not click Send inside ChatGPT. This destination behavior is controlled by ChatGPT. To change the countdown, edit `remaining = 3` inside `startChatGPTHandoff` in `core.mjs`.
+The ChatGPT handoff uses `https://chatgpt.com/?prompt=...`. The question is URL-encoded; the page does not click Send inside ChatGPT. This destination behavior is controlled by ChatGPT. To change the countdown, edit `remaining = 6` inside `startChatGPTHandoff` in `core.mjs`.
 
-The site includes example prompts, local prompt history and search, light/dark appearance, temporary prompts, two typing speeds, optional browser dictation, and reduced-motion support. Prompt links contain their question in the URL fragment. Recent prompts stay in the browser's local storage unless Temporary is enabled.
+The interface is a single centered composer. It includes light/dark appearance in the ChatGPT dropdown, two deliberately slow typing speeds, optional browser dictation, and reduced-motion support. New links default to the slower speed. Prompt links contain their question in the URL fragment; only the appearance preference is saved in local storage.
 
 This is an independent parody, not affiliated with OpenAI. It demonstrates prompts and does not generate AI answers.

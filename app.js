@@ -1,4 +1,4 @@
-import { EXAMPLES, MAX_PROMPT_LENGTH, normalizePrompt, buildShareURL, readPromptFromHash, buildChatGPTURL, startChatGPTHandoff, typingPlan } from './core.mjs';
+import { MAX_PROMPT_LENGTH, normalizePrompt, buildShareURL, readPromptFromHash, buildChatGPTURL, startChatGPTHandoff, typingPlan } from './core.mjs';
 
 const $ = id => document.getElementById(id);
 const $$ = selector => [...document.querySelectorAll(selector)];
@@ -9,22 +9,10 @@ const storage = {
 };
 
 const state = {
-  speed: 'normal', temporary: false, mode: 'builder', prompt: '', preview: false,
-  controller: null, draft: '', draftSpeed: 'normal', shareURL: '', listening: false,
-  history: [], cancelRedirect: null,
+  speed: 'slow', mode: 'builder', prompt: '', preview: false,
+  controller: null, draft: '', draftSpeed: 'slow', shareURL: '', listening: false,
+  cancelRedirect: null,
 };
-const savedHistory = storage.get('history', []);
-if (Array.isArray(savedHistory)) state.history = savedHistory.filter(item => item && typeof item.prompt === 'string' && item.prompt.trim() && item.prompt.length <= MAX_PROMPT_LENGTH).slice(0, 12);
-
-function icon(name) {
-  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  svg.setAttribute('class', 'icon');
-  const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
-  use.setAttribute('href', `#i-${name}`);
-  svg.append(use);
-  return svg;
-}
-
 function setTheme(theme) {
   const dark = theme === 'dark';
   document.documentElement.dataset.theme = dark ? 'dark' : 'light';
@@ -47,8 +35,7 @@ function toast(message) {
 }
 
 const popovers = [
-  ['modelButton', 'modelMenu'], ['profileButton', 'profileMenu'],
-  ['examplesButton', 'examplesMenu'], ['toolsButton', 'toolsMenu'],
+  ['modelButton', 'modelMenu'], ['toolsButton', 'toolsMenu'],
 ];
 function closeMenus() {
   popovers.forEach(([trigger, menu]) => { $(menu).hidden = true; $(trigger).setAttribute('aria-expanded', 'false'); });
@@ -65,39 +52,9 @@ document.addEventListener('click', event => {
   if (!popovers.some(([trigger, menu]) => $(trigger).contains(event.target) || $(menu).contains(event.target))) closeMenus();
 });
 
-function closeMobileSidebar() {
-  document.body.classList.remove('mobile-sidebar-open');
-  $('sidebarBackdrop').hidden = true;
-  syncSidebarAccessibility();
-}
-function syncSidebarAccessibility() {
-  const mobile = matchMedia('(max-width: 760px)').matches;
-  const closed = mobile ? !document.body.classList.contains('mobile-sidebar-open') : document.body.classList.contains('sidebar-collapsed');
-  $('sidebar').inert = closed;
-  $('openSidebar').setAttribute('aria-expanded', String(!closed));
-}
-$('openSidebar').addEventListener('click', () => {
-  if (matchMedia('(max-width: 760px)').matches) {
-    document.body.classList.add('mobile-sidebar-open');
-    $('sidebarBackdrop').hidden = false;
-  } else document.body.classList.remove('sidebar-collapsed');
-  syncSidebarAccessibility();
-  $('closeSidebar').focus();
-});
-$('closeSidebar').addEventListener('click', () => {
-  if (matchMedia('(max-width: 760px)').matches) closeMobileSidebar();
-  else document.body.classList.add('sidebar-collapsed');
-  syncSidebarAccessibility();
-  $('openSidebar').focus();
-});
-$('sidebarBackdrop').addEventListener('click', closeMobileSidebar);
-matchMedia('(max-width: 760px)').addEventListener('change', () => { closeMobileSidebar(); syncSidebarAccessibility(); });
-syncSidebarAccessibility();
-
 function showDialog(id) {
   cancelHandoff();
   closeMenus();
-  closeMobileSidebar();
   const dialog = $(id);
   if (!dialog.open) dialog.showModal();
 }
@@ -137,28 +94,8 @@ function setSpeed(speed) {
 $$('.speed-option').forEach(button => button.addEventListener('click', () => {
   setSpeed(button.dataset.speed); closeMenus();
   $('shareAgain').hidden = true;
-  toast(state.speed === 'slow' ? 'Taking our time. Slowly and helpfully.' : 'Normal typing speed. A gentle nudge.');
+  toast(state.speed === 'slow' ? 'Every. Single. Letter.' : 'Slowly enough to make the point.');
 }));
-
-function savePrompt(prompt) {
-  if (state.temporary) return;
-  state.history = [{ prompt, speed: state.speed, date: Date.now() }, ...state.history.filter(item => item.prompt !== prompt)].slice(0, 12);
-  storage.set('history', state.history);
-  renderHistory();
-}
-function renderHistory() {
-  $('historyList').replaceChildren();
-  $('historySection').hidden = !state.history.length;
-  state.history.forEach(item => {
-    const button = document.createElement('button');
-    button.className = 'history-item';
-    button.textContent = item.prompt;
-    button.title = item.prompt;
-    button.addEventListener('click', () => loadPrompt(item.prompt, item.speed));
-    $('historyList').append(button);
-  });
-}
-renderHistory();
 
 function cancelHandoff() {
   state.cancelRedirect?.();
@@ -175,7 +112,7 @@ function stopPlayback() {
   document.body.classList.remove('is-playing');
 }
 
-function resetBuilder({ prompt = '', speed = 'normal', keepLink = false, focus = true } = {}) {
+function resetBuilder({ prompt = '', speed = 'slow', keepLink = false, focus = true } = {}) {
   stopPlayback();
   stopDictation();
   state.mode = 'builder';
@@ -195,28 +132,16 @@ function resetBuilder({ prompt = '', speed = 'normal', keepLink = false, focus =
   setSpeed(speed);
   syncInput();
   closeMenus();
-  closeMobileSidebar();
   window.scrollTo(0, 0);
   if (focus) input.focus({ preventScroll: true });
 }
 
-function loadPrompt(prompt, speed = 'normal') {
-  $$('dialog[open]').forEach(dialog => dialog.close());
-  resetBuilder({ prompt: normalizePrompt(prompt), speed });
-}
-$$('[data-example]').forEach(button => button.addEventListener('click', () => loadPrompt(EXAMPLES[button.dataset.example].prompt)));
 $$('[data-action="new"]').forEach(button => button.addEventListener('click', () => resetBuilder()));
 $$('[data-action="about"]').forEach(button => button.addEventListener('click', () => showDialog('aboutDialog')));
 $('gotIt').addEventListener('click', () => { $('aboutDialog').close(); resetBuilder(); });
 $('themeButton').addEventListener('click', () => {
   setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'); closeMenus();
 });
-$('temporaryButton').addEventListener('click', () => {
-  state.temporary = !state.temporary;
-  $('temporaryButton').setAttribute('aria-pressed', String(state.temporary));
-  toast(state.temporary ? "This prompt won't be saved in your recent prompts." : 'New prompts will be saved in this browser.');
-});
-
 function createLink() {
   const prompt = normalizePrompt(input.value);
   if (!prompt || state.mode !== 'builder') return;
@@ -228,7 +153,6 @@ function createLink() {
   $('copyLink').querySelector('span').textContent = 'Copy link';
   $('copyLink').querySelector('use').setAttribute('href', '#i-copy');
   $('shareAgain').hidden = false;
-  savePrompt(prompt);
   showDialog('shareDialog');
 }
 $('promptForm').addEventListener('submit', event => { event.preventDefault(); createLink(); });
@@ -273,58 +197,6 @@ $('copyPrompt').addEventListener('click', async () => {
   }
 });
 
-function renderLibrary() {
-  Object.values(EXAMPLES).forEach(example => {
-    const button = document.createElement('button');
-    button.className = 'library-example';
-    const content = document.createElement('div');
-    const title = document.createElement('strong'); title.textContent = example.title;
-    const description = document.createElement('p'); description.textContent = example.prompt;
-    content.append(title, description);
-    button.append(icon(example.icon), content);
-    button.addEventListener('click', () => loadPrompt(example.prompt));
-    $('libraryExamples').append(button);
-  });
-}
-renderLibrary();
-$('libraryButton').addEventListener('click', () => showDialog('libraryDialog'));
-
-function renderSearch() {
-  const query = $('searchInput').value.toLocaleLowerCase().trim();
-  const results = $('searchResults');
-  results.replaceChildren();
-  const groups = [
-    ['Your prompts', state.history.map(item => ({ ...item, title: item.prompt, icon: 'edit' }))],
-    ['A little inspiration', Object.values(EXAMPLES)],
-  ];
-  let found = false;
-  groups.forEach(([label, items]) => {
-    const matches = items.filter(item => `${item.title} ${item.prompt}`.toLocaleLowerCase().includes(query));
-    if (!matches.length) return;
-    found = true;
-    const heading = document.createElement('div'); heading.className = 'result-label'; heading.textContent = label;
-    results.append(heading);
-    matches.forEach(item => {
-      const button = document.createElement('button'); button.className = 'search-result';
-      const content = document.createElement('div');
-      const title = document.createElement('strong'); title.textContent = item.title;
-      content.append(title);
-      if (item.prompt !== item.title) { const description = document.createElement('p'); description.textContent = item.prompt; content.append(description); }
-      button.append(icon(item.icon), content);
-      button.addEventListener('click', () => loadPrompt(item.prompt, item.speed));
-      results.append(button);
-    });
-  });
-  if (!found) {
-    const empty = document.createElement('div'); empty.className = 'search-empty';
-    empty.textContent = 'No prompts found. That sounds like a good excuse to write one.'; results.append(empty);
-  }
-}
-$('searchButton').addEventListener('click', () => {
-  $('searchInput').value = ''; renderSearch(); showDialog('searchDialog'); $('searchInput').focus();
-});
-$('searchInput').addEventListener('input', renderSearch);
-
 function delay(ms, signal) {
   return new Promise((resolve, reject) => {
     if (signal.aborted) return reject(new DOMException('Cancelled', 'AbortError'));
@@ -333,11 +205,13 @@ function delay(ms, signal) {
     signal.addEventListener('abort', abort, { once: true });
   });
 }
-function setStep(index, text) {
+function setStep(index, text, detail) {
   $$('.step-dots span').forEach((dot, i) => { dot.classList.toggle('active', i === index); dot.classList.toggle('done', i < index); });
   $('guideText').textContent = text;
+  $('guideDetail').textContent = detail;
+  $('guideStep').textContent = `STEP 0${index + 1} / 03`;
 }
-function moveCursor(x, y, duration = 850) {
+function moveCursor(x, y, duration = 1200) {
   const cursor = $('demoCursor');
   cursor.style.transitionDuration = `${duration}ms`;
   cursor.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
@@ -370,11 +244,11 @@ function finishPlayback() {
   });
 }
 
-async function playPrompt(prompt, speed = 'normal', preview = false) {
+async function playPrompt(prompt, speed = 'slow', preview = false) {
   stopPlayback();
   stopDictation();
   $$('dialog[open]').forEach(dialog => dialog.close());
-  closeMenus(); closeMobileSidebar();
+  closeMenus();
   state.mode = 'playing';
   state.prompt = normalizePrompt(prompt);
   state.preview = preview;
@@ -396,19 +270,20 @@ async function playPrompt(prompt, speed = 'normal', preview = false) {
   window.scrollTo(0, 0);
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) { finishPlayback(); return; }
   $('demoGuide').hidden = false;
-  setStep(0, 'First, click the message box.');
+  setStep(0, 'Behold. A text box.', 'Click it. We believe in you.');
   const cursor = $('demoCursor');
   cursor.hidden = false;
   moveCursor(window.innerWidth * .72, Math.min(window.innerHeight - 130, window.innerHeight * .7), 0);
   try {
-    await delay(650, signal);
+    await delay(2200, signal);
     let box = input.getBoundingClientRect();
     moveCursor(box.left + Math.min(150, box.width * .4), box.top + 14);
-    await delay(950, signal);
+    await delay(1400, signal);
     clickCursor(); input.focus({ preventScroll: true });
-    await delay(500, signal);
-    setStep(1, 'Then, type your question.');
-    moveCursor(box.right - 40, box.bottom + 48, 550);
+    await delay(900, signal);
+    setStep(1, 'Now, use your words.', 'The very same question you just asked someone else.');
+    moveCursor(box.right - 40, box.bottom + 48, 1100);
+    await delay(1000, signal);
     const plan = typingPlan(state.prompt, speed);
     for (let index = 0; index < plan.chars.length; index += plan.chunk) {
       input.value += plan.chars.slice(index, index + plan.chunk).join('');
@@ -418,13 +293,14 @@ async function playPrompt(prompt, speed = 'normal', preview = false) {
       await delay(plan.interval + (/[.,?!]/.test(last) ? 100 : 0), signal);
     }
     $('sendButton').disabled = false;
-    await delay(550, signal);
-    setStep(2, 'And press send.');
+    await delay(1400, signal);
+    setStep(2, 'Press the big arrow.', 'Truly groundbreaking stuff.');
+    await delay(1300, signal);
     box = $('sendButton').getBoundingClientRect();
-    moveCursor(box.left + box.width / 2, box.top + box.height / 2, 750);
-    await delay(950, signal);
+    moveCursor(box.left + box.width / 2, box.top + box.height / 2, 1200);
+    await delay(1400, signal);
     clickCursor();
-    await delay(400, signal);
+    await delay(850, signal);
     finishPlayback();
   } catch (error) {
     if (error.name !== 'AbortError') { finishPlayback(); console.error('Playback could not finish:', error); }
@@ -437,7 +313,6 @@ $('previewButton').addEventListener('click', () => {
 });
 $('exitPreview').addEventListener('click', () => resetBuilder({ prompt: state.draft, speed: state.draftSpeed, keepLink: true }));
 $('skipButton').addEventListener('click', finishPlayback);
-$('guideSkip').addEventListener('click', finishPlayback);
 $('replayButton').addEventListener('click', () => void playPrompt(state.prompt, state.speed, state.preview));
 $('makeOwn').addEventListener('click', () => resetBuilder());
 $('cancelRedirect').addEventListener('click', () => { cancelHandoff(); toast("Staying here. Open ChatGPT whenever you're ready."); });
@@ -481,7 +356,7 @@ $('micButton').addEventListener('click', () => {
 });
 
 document.addEventListener('keydown', event => {
-  if (event.key === 'Escape') { closeMenus(); closeMobileSidebar(); }
+  if (event.key === 'Escape') { closeMenus(); }
   if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === 'o') {
     event.preventDefault(); $$('dialog[open]').forEach(dialog => dialog.close()); resetBuilder();
   }

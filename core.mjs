@@ -1,12 +1,5 @@
 export const MAX_PROMPT_LENGTH = 2000;
 
-export const EXAMPLES = Object.freeze({
-  email: { title: 'Write that email', icon: 'mail', prompt: 'Write a polite email declining a meeting that really could have been an email.' },
-  explain: { title: "Explain it like I'm five", icon: 'lightbulb', prompt: "Explain how Wi-Fi works like I'm five years old. Keep it simple and use a fun analogy." },
-  code: { title: "Why isn't my code working?", icon: 'code', prompt: 'Explain the difference between =, ==, and === in JavaScript, with a simple example of each.' },
-  debate: { title: 'Settle the group chat debate', icon: 'info', prompt: 'Is a hot dog a sandwich? Give me the strongest argument for each side, then settle the debate.' },
-});
-
 export function normalizePrompt(value) {
   if (typeof value !== 'string') return '';
   const prompt = value.trim().slice(0, MAX_PROMPT_LENGTH);
@@ -32,7 +25,7 @@ export function readPromptFromHash(hash) {
   return { prompt: decodePrompt(params.get('p')), speed: params.get('s') === 'slow' ? 'slow' : 'normal' };
 }
 
-export function buildShareURL(base, prompt, speed = 'normal') {
+export function buildShareURL(base, prompt, speed = 'slow') {
   if (!normalizePrompt(prompt)) throw new Error('Write a prompt first');
   const url = new URL(base);
   url.search = '';
@@ -48,7 +41,7 @@ export function buildChatGPTURL(prompt) {
 
 export function startChatGPTHandoff(prompt, { onTick, navigate, setTimer = setTimeout, clearTimer = clearTimeout }) {
   const url = buildChatGPTURL(prompt);
-  let remaining = 3;
+  let remaining = 6;
   let timer;
   let cancelled = false;
   function tick() {
@@ -68,7 +61,7 @@ export function startChatGPTHandoff(prompt, { onTick, navigate, setTimer = setTi
 
 export function typingPlan(prompt, speed) {
   const chars = Array.from(prompt);
-  const targetDuration = speed === 'slow' ? 13500 : 8500;
-  const interval = speed === 'slow' ? 70 : 36;
+  const targetDuration = speed === 'slow' ? 22000 : 15000;
+  const interval = speed === 'slow' ? 110 : 70;
   return { chars, interval, chunk: Math.max(1, Math.ceil(chars.length * interval / targetDuration)) };
 }
