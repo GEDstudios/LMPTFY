@@ -217,12 +217,60 @@ async function waitForStep(startedAt, signal) {
   const remaining = MIN_STAGE_DURATION_MS - (performance.now() - startedAt);
   await delay(Math.max(0, remaining), signal);
 }
-function moveCursor(x, y, duration = 800) {
+function moveCursor(x, y, duration = 800, easing = 'cubic-bezier(.35,.05,.24,1)') {
   const cursor = $('demoCursor');
   cursor.style.transitionDuration = `${duration}ms`;
+  cursor.style.transitionTimingFunction = easing;
   cursor.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
 }
-function orbitCursor(rect, signal) {
+function createTypingCursor(signal) {
+  // A hidden text mirror lets the browser measure wrapping, Unicode, and RTL text.
+  const mirror = document.createElement('div');
+  const text = document.createTextNode('');
+  const caret = document.createElement('span');
+  caret.textContent = '\u200b'; // Keep the final line measurable, including after a newline.
+  mirror.setAttribute('aria-hidden', 'true');
+  mirror.style.cssText = 'position:fixed;top:0;left:0;visibility:hidden;pointer-events:none;box-sizing:border-box;margin:0;border:0;height:0;overflow:hidden;';
+  mirror.append(text, caret);
+  document.body.append(mirror);
+  const properties = [
+    'fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'fontVariant', 'fontStretch',
+    'fontFeatureSettings', 'fontVariationSettings', 'lineHeight', 'letterSpacing',
+    'wordSpacing', 'textTransform', 'textIndent', 'textAlign', 'direction', 'unicodeBidi',
+    'tabSize', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft',
+    'whiteSpace', 'wordBreak', 'overflowWrap',
+  ];
+  function follow(duration = 60) {
+    if (signal.aborted) return;
+    const style = getComputedStyle(input);
+    for (const property of properties) mirror.style[property] = style[property];
+    // clientWidth excludes the scrollbar, so long prompts wrap at the same column.
+    mirror.style.width = `${input.clientWidth}px`;
+    text.data = input.value;
+    const box = input.getBoundingClientRect();
+    const origin = mirror.getBoundingClientRect();
+    const end = caret.getBoundingClientRect();
+    const x = box.left + input.clientLeft + end.left - origin.left - input.scrollLeft + 5;
+    const y = box.top + input.clientTop + end.bottom - origin.top - input.scrollTop + 3;
+    moveCursor(
+      Math.max(8, Math.min(x, window.innerWidth - 36)),
+      Math.max(8, Math.min(y, window.innerHeight - 42)),
+      duration, 'linear',
+    );
+  }
+  const refresh = () => follow(0);
+  function stop() {
+    mirror.remove();
+    input.removeEventListener('scroll', refresh);
+    window.removeEventListener('resize', refresh);
+    signal.removeEventListener('abort', stop);
+  }
+  input.addEventListener('scroll', refresh);
+  window.addEventListener('resize', refresh);
+  signal.addEventListener('abort', stop, { once: true });
+  return { follow, stop };
+}
+function orbitCursor(rect, signal, duration = 2200) {
   return new Promise((resolve, reject) => {
     if (signal.aborted) return reject(new DOMException('Cancelled', 'AbortError'));
     const cursor = $('demoCursor');
@@ -235,7 +283,7 @@ function orbitCursor(rect, signal) {
       reject(new DOMException('Cancelled', 'AbortError'));
     }
     function frame(now) {
-      const progress = Math.min(1, Math.max(0, now - startedAt) / 2200);
+      const progress = Math.min(1, Math.max(0, now - startedAt) / duration);
       const point = cursorOrbitPoint(rect, { width: window.innerWidth, height: window.innerHeight }, progress);
       cursor.style.transform = `translate(${point.x.toFixed(2)}px, ${point.y.toFixed(2)}px) rotate(${point.tilt.toFixed(2)}deg)`;
       if (progress === 1) {
@@ -301,9 +349,10 @@ async function playPrompt(prompt, speed = 'slow', preview = false) {
   window.scrollTo(0, 0);
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) { finishPlayback(); return; }
   $('demoGuide').hidden = false;
-  let stepStartedAt = setStep(0, 'Behold. A text box.', 'Click it. We believe in you.');
+  const stepStartedAt = setStep(0, 'Behold. A text box.', 'Click it. We believe in you.');
   const cursor = $('demoCursor');
   cursor.hidden = false;
+  let typingCursor;
   try {
     await orbitCursor($('promptForm').getBoundingClientRect(), signal);
     let box = input.getBoundingClientRect();
@@ -312,39 +361,47 @@ async function playPrompt(prompt, speed = 'slow', preview = false) {
     clickCursor(); input.focus({ preventScroll: true });
     await delay(300, signal);
     await waitForStep(stepStartedAt, signal);
-    stepStartedAt = setStep(1, 'Now, use your words.', 'The very same question you just asked someone else.');
-    moveCursor(box.right - 40, box.bottom + 48, 450);
+    setStep(1, 'Now, use your words.', 'The very same question you just asked someone else.');
+    typingCursor = createTypingCursor(signal);
+    typingCursor.follow(150);
     await delay(150, signal);
     const plan = typingPlan(state.prompt, speed);
     const typingDeadline = performance.now() + plan.duration;
     for (let index = 0; index < plan.chars.length; index += plan.chunk) {
       if (performance.now() >= typingDeadline) {
         input.value = state.prompt;
+        input.setSelectionRange(input.value.length, input.value.length);
         syncInput();
         input.scrollTop = input.scrollHeight;
+        typingCursor.follow();
         break;
       }
       input.value += plan.chars.slice(index, index + plan.chunk).join('');
+      input.setSelectionRange(input.value.length, input.value.length);
       syncInput();
       input.scrollTop = input.scrollHeight;
+      typingCursor.follow(Math.min(60, plan.interval));
       const last = plan.chars[Math.min(index + plan.chunk - 1, plan.chars.length - 1)];
       const pause = Math.min(plan.interval + (/[.,?!]/.test(last) ? 60 : 0), plan.maxDelay);
       await delay(Math.max(0, Math.min(pause, typingDeadline - performance.now())), signal);
     }
+    typingCursor.stop();
     $('sendButton').disabled = false;
-    await delay(400, signal);
-    await waitForStep(stepStartedAt, signal);
-    stepStartedAt = setStep(2, 'Press the big arrow.', 'Truly groundbreaking stuff.');
-    await delay(350, signal);
+    setStep(2, 'Press the big arrow.', 'Truly groundbreaking stuff.');
     box = $('sendButton').getBoundingClientRect();
-    moveCursor(box.left + box.width / 2, box.top + box.height / 2, 750);
-    await delay(850, signal);
-    await waitForStep(stepStartedAt, signal);
+    const orbitStart = cursorOrbitPoint(box, { width: window.innerWidth, height: window.innerHeight }, 0);
+    moveCursor(orbitStart.x, orbitStart.y, 180);
+    await delay(180, signal);
+    await orbitCursor(box, signal, 1000);
+    moveCursor(box.left + box.width / 2, box.top + box.height / 2, 140);
+    await delay(140, signal);
     clickCursor();
-    await delay(350, signal);
+    await delay(100, signal);
     finishPlayback();
   } catch (error) {
     if (error.name !== 'AbortError') { finishPlayback(); console.error('Playback could not finish:', error); }
+  } finally {
+    typingCursor?.stop();
   }
 }
 

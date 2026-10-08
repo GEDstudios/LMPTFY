@@ -21,16 +21,32 @@ export function decodePrompt(encoded) {
 
 export function readPromptFromHash(hash) {
   const params = new URLSearchParams(hash.replace(/^#/, ''));
+  if (params.has('ask')) {
+    // Reject malformed escapes instead of silently replacing broken UTF-8.
+    decodeURIComponent(hash);
+    const prompt = params.get('ask');
+    if (!prompt.trim() || prompt.length > MAX_PROMPT_LENGTH) throw new Error('Invalid prompt link');
+    return { prompt: prompt.trim(), speed: params.get('s') === 'normal' ? 'normal' : 'slow' };
+  }
+  // Links shared by earlier versions keep their original prompt and speed.
   if (!params.has('p')) return null;
   return { prompt: decodePrompt(params.get('p')), speed: params.get('s') === 'slow' ? 'slow' : 'normal' };
 }
 
 export function buildShareURL(base, prompt, speed = 'slow') {
-  if (!normalizePrompt(prompt)) throw new Error('Write a prompt first');
+  const question = normalizePrompt(prompt);
+  if (!question) throw new Error('Write a prompt first');
   const url = new URL(base);
   url.search = '';
-  url.hash = `p=${encodePrompt(prompt)}${speed === 'slow' ? '&s=slow' : ''}`;
-  return url.href;
+  const params = new URLSearchParams({ ask: question });
+  if (speed === 'normal') params.set('s', 'normal');
+  url.hash = params.toString();
+  // Keep Hebrew, other languages, and emoji readable in the copied link.
+  // Spaces and URL delimiters remain escaped so the complete link is clickable.
+  return url.href.replace(/(?:%[89a-f][0-9a-f])+/gi, encoded => {
+    const decoded = decodeURIComponent(encoded);
+    return /[\s\u200e\u200f\u202a-\u202e\u2066-\u2069]/u.test(decoded) ? encoded : decoded;
+  });
 }
 
 export function buildChatGPTURL(prompt) {
@@ -41,7 +57,7 @@ export function buildChatGPTURL(prompt) {
 
 export function startChatGPTHandoff(prompt, { onTick, navigate, setTimer = setTimeout, clearTimer = clearTimeout }) {
   const url = buildChatGPTURL(prompt);
-  let remaining = 6;
+  let remaining = 3;
   let timer;
   let cancelled = false;
   function tick() {

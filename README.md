@@ -1,6 +1,6 @@
 # Let Me Prompt That For You
 
-A minimal ChatGPT-style demonstration: a cursor slowly clicks the message box, types your question, and presses send. Large sarcastic captions guide each step, with an oversized final punchline. After the reveal and a six-second countdown, the page redirects to ChatGPT with the question passed to its draft input. Replay or Stay here cancels the countdown.
+A minimal ChatGPT-style demonstration: a cursor slowly clicks the message box, types your question, and presses send. Large sarcastic captions guide each step, with an oversized final punchline. After the reveal and a three-second countdown, the page redirects to ChatGPT with the question passed to its draft input. Replay or Stay here cancels the countdown.
 
 This export is ready for GitHub Pages. It needs no build step, dependencies, API keys, or backend.
 
@@ -48,8 +48,16 @@ No `npm install` is needed. Checks cover Unicode prompt links, malformed links, 
 
 ## Behavior and customization
 
-The ChatGPT handoff uses `https://chatgpt.com/?prompt=...`. The question is URL-encoded; the page does not click Send inside ChatGPT. This destination behavior is controlled by ChatGPT. To change the countdown, edit `remaining = 6` inside `startChatGPTHandoff` in `core.mjs`.
+The ChatGPT handoff uses `https://chatgpt.com/?prompt=...`. The question is URL-encoded; the page does not click Send inside ChatGPT. This destination behavior is controlled by ChatGPT. To change the countdown, edit `remaining = 3` inside `startChatGPTHandoff` in `core.mjs`.
 
-The interface is a single centered composer. It includes light/dark appearance in the ChatGPT dropdown, two paced typing speeds, optional browser dictation, and reduced-motion support. New links default to the more deliberate speed. During “Behold. A text box.”, the cursor immediately makes a 2.2-second clockwise loop around the composer with a slight tilt, then clicks inside. Each instruction stage stays visible for at least three seconds, even for one-letter prompts. The first letter appears at about 3.2 seconds. The loop stays within the viewport and cancels with playback. The gap between letters is 78 ms by default, a 20% increase. Typing is capped at 10.8 seconds, including punctuation pauses, and the current step gently pulses to show activity. Prompt links contain their question in the URL fragment; only the appearance preference is saved in local storage.
+The interface is a single centered composer. It includes light/dark appearance in the ChatGPT dropdown, two paced typing speeds, optional browser dictation, and reduced-motion support. New links default to the more deliberate speed. During “Behold. A text box.”, the cursor immediately makes a 2.2-second clockwise loop around the composer with a slight tilt, then clicks inside. The opening instruction stays visible for at least three seconds. Typing moves straight into the Send animation as soon as the text is complete, without a minimum-stage hold. The first letter appears at about 3.2 seconds. The loop stays within the viewport and cancels with playback. While typing, the cursor follows the end of the text, including wrapped lines and scrolling; its position is measured using the same typography and available width as the input. The gap between letters is 78 ms by default, a 20% increase. Typing is capped at 10.8 seconds, including punctuation pauses, and the current step gently pulses to show activity. Prompt links contain their question in the URL fragment; only the appearance preference is saved in local storage.
 
 This is an independent parody, not affiliated with OpenAI. It demonstrates prompts and does not generate AI answers.
+
+The enabled Send button gets a one-second clockwise cursor orbit before the click. Moving to Send, circling, clicking, and revealing the final screen take about 1.5 seconds after the last letter. The final reveal redirects after three seconds. The logo and favicon use the official SVG from https://chatgpt.com/cdn/assets/favicon-l4nq08hd.svg.
+
+## Readable share links
+
+New links include the question in readable form, for example `#ask=Why+is+the+sky+blue%3F`. Hebrew, other languages, and emoji stay readable in the copied link; reserved characters and line breaks are safely escaped. The default speed needs no extra URL parameter. Old `#p=...` links remain supported with their original speed.
+
+Links still contain the full question, so longer questions produce longer links. Very short codes need a persistent URL-shortening service or backend to store each question. This export remains self-contained and works on static GitHub Pages without one.

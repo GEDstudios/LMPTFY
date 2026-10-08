@@ -31,6 +31,22 @@ test('malformed, empty, oversized, and invalid UTF-8 payloads are rejected', () 
   assert.equal(readPromptFromHash('#unrelated'), null);
   const hash = `#p=${encodePrompt('hello')}&s=unexpected`;
   assert.equal(readPromptFromHash(hash).speed, 'normal');
+  for (const bad of ['#ask=', '#ask=+++', '#ask=%FF', '#ask=%zz', `#ask=${'a'.repeat(2001)}`]) {
+    assert.throws(() => readPromptFromHash(bad));
+  }
+});
+
+test('new links are readable and legacy links retain their prompt and playback speed', () => {
+  assert.equal(buildShareURL('https://example.com/project/', 'Why is the sky blue?'),
+    'https://example.com/project/#ask=Why+is+the+sky+blue%3F');
+  const unicodeLink = buildShareURL('https://example.com/', 'שלום 👋');
+  assert.equal(unicodeLink, 'https://example.com/#ask=שלום+👋');
+  assert.deepEqual(readPromptFromHash(new URL(unicodeLink).hash), { prompt: 'שלום 👋', speed: 'slow' });
+  const oldPrompt = 'An older link & its question שלום 👋';
+  for (const speed of ['normal', 'slow']) {
+    const hash = `#p=${encodePrompt(oldPrompt)}${speed === 'slow' ? '&s=slow' : ''}`;
+    assert.deepEqual(readPromptFromHash(hash), { prompt: oldPrompt, speed });
+  }
 });
 
 test('ChatGPT handoff uses an HTTPS ChatGPT URL and preserves the prompt safely', () => {
@@ -42,7 +58,7 @@ test('ChatGPT handoff uses an HTTPS ChatGPT URL and preserves the prompt safely'
   assert.equal([...url.searchParams].length, 1);
 });
 
-test('handoff leaves six seconds for the punchline, preserves the draft, and redirects exactly once', () => {
+test('handoff leaves three seconds for the punchline, preserves the draft, and redirects exactly once', () => {
   const ticks = [], destinations = [], queue = [];
   startChatGPTHandoff('Explain this & that שלום 👋', {
     onTick: seconds => ticks.push(seconds),
@@ -50,14 +66,14 @@ test('handoff leaves six seconds for the punchline, preserves the draft, and red
     setTimer: (fn, ms) => { assert.equal(ms, 1000); queue.push(fn); return fn; },
     clearTimer: () => {},
   });
-  assert.deepEqual(ticks, [6]);
+  assert.deepEqual(ticks, [3]);
   assert.equal(destinations.length, 0);
-  for (let i = 0; i < 5; i++) queue.shift()();
+  for (let i = 0; i < 2; i++) queue.shift()();
   assert.equal(destinations.length, 0);
   const finalTick = queue.shift();
   finalTick();
   finalTick();
-  assert.deepEqual(ticks, [6, 5, 4, 3, 2, 1, 0]);
+  assert.deepEqual(ticks, [3, 2, 1, 0]);
   assert.equal(destinations.length, 1);
   assert.equal(new URL(destinations[0]).searchParams.get('prompt'), 'Explain this & that שלום 👋');
 });
