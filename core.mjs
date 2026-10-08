@@ -61,7 +61,26 @@ export function startChatGPTHandoff(prompt, { onTick, navigate, setTimer = setTi
 
 export function typingPlan(prompt, speed) {
   const chars = Array.from(prompt);
-  const targetDuration = speed === 'slow' ? 22000 : 15000;
-  const interval = speed === 'slow' ? 110 : 70;
-  return { chars, interval, chunk: Math.max(1, Math.ceil(chars.length * interval / targetDuration)) };
+  const duration = speed === 'slow' ? 9000 : 6500;
+  const interval = speed === 'slow' ? 65 : 42;
+  const chunk = Math.max(1, Math.ceil(chars.length * interval / duration));
+  const frames = Math.max(1, Math.ceil(chars.length / chunk));
+  return { chars, interval, chunk, duration, maxDelay: duration / frames };
+}
+
+export function cursorOrbitPoint(rect, viewport, progress) {
+  const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+  const maxX = Math.max(8, viewport.width - 36);
+  const maxY = Math.max(8, viewport.height - 42);
+  const left = clamp(rect.left - 18, 8, maxX);
+  const right = clamp(rect.right + 8, left, maxX);
+  const top = clamp(rect.top - 22, 8, maxY);
+  const bottom = clamp(rect.bottom + 8, top, maxY);
+  const turn = clamp(progress, 0, 1) * Math.PI * 2;
+  const angle = turn - Math.PI / 2;
+  return {
+    x: (left + right) / 2 + Math.cos(angle) * (right - left) / 2,
+    y: (top + bottom) / 2 + Math.sin(angle) * (bottom - top) / 2,
+    tilt: Math.sin(turn) * 10,
+  };
 }

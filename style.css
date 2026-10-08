@@ -18,6 +18,8 @@
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 
 /* The entire experience lives in the centered main page. */
+.is-playing .step-dots span.active{animation:step-activity 1s ease-in-out infinite}
+@keyframes step-activity{50%{opacity:.35}}
 .main{margin-left:0;transition:none}
 .new-prompt-button{display:inline-flex}
 .model-menu .menu-item{border:0;border-radius:9px;margin-top:0}

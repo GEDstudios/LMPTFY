@@ -50,6 +50,6 @@ No `npm install` is needed. Checks cover Unicode prompt links, malformed links, 
 
 The ChatGPT handoff uses `https://chatgpt.com/?prompt=...`. The question is URL-encoded; the page does not click Send inside ChatGPT. This destination behavior is controlled by ChatGPT. To change the countdown, edit `remaining = 6` inside `startChatGPTHandoff` in `core.mjs`.
 
-The interface is a single centered composer. It includes light/dark appearance in the ChatGPT dropdown, two deliberately slow typing speeds, optional browser dictation, and reduced-motion support. New links default to the slower speed. Prompt links contain their question in the URL fragment; only the appearance preference is saved in local storage.
+The interface is a single centered composer. It includes light/dark appearance in the ChatGPT dropdown, two paced typing speeds, optional browser dictation, and reduced-motion support. New links default to the more deliberate speed. During “Behold. A text box.”, the cursor immediately makes a 1.55-second clockwise loop around the composer with a slight tilt, then clicks inside. The first letter appears at about 2.5 seconds. The loop stays within the viewport and cancels with playback. Typing is capped at nine seconds, including punctuation pauses, and the current step gently pulses to show activity. Prompt links contain their question in the URL fragment; only the appearance preference is saved in local storage.
 
 This is an independent parody, not affiliated with OpenAI. It demonstrates prompts and does not generate AI answers.
