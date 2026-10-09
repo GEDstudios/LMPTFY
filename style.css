@@ -18,6 +18,20 @@
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 
 /* The entire experience lives in the centered main page. */
+.topbar{height:auto;min-height:64px;flex-wrap:wrap}
+#viewerControls{margin-left:auto;flex-wrap:wrap;justify-content:flex-end}
+.viewer-create-button{min-height:40px;padding:9px 14px;white-space:nowrap}
+.modal-actions{flex-wrap:wrap}
+.modal-actions .button:disabled{opacity:.55;cursor:wait}
+@media(max-width:560px){
+  .topbar{min-height:60px}
+  #viewerControls{width:100%;gap:8px}
+  .share-modal .modal-actions .button{flex:1 1 auto}
+  .share-modal .modal-actions #previewButton{flex-basis:100%}
+}
+@media(max-width:560px) and (min-height:631px){
+  .is-viewing .start-screen{min-height:calc(100dvh - 100px)}
+}
 .is-playing .step-dots span.active{animation:step-activity 1s ease-in-out infinite}
 @keyframes step-activity{50%{opacity:.35}}
 .main{margin-left:0;transition:none}
@@ -52,3 +66,22 @@
   .is-viewing .start-screen{min-height:470px;padding:32px 20px 50px}
   .demo-guide{bottom:auto}.conversation{padding-top:20px}
 }
+
+/* The product heading replaces the model menu. */
+.topbar{justify-content:flex-end}
+.header-right,.composer-right{margin-left:auto}
+#welcomeHeading{font-size:clamp(32px,5vw,58px);font-weight:700;line-height:1.1;letter-spacing:-.04em;text-wrap:balance}
+.about-appearance{margin:12px auto 0}
+
+/* A brief loading ring, followed by a minimal final punchline. */
+.send-button{position:relative}
+.send-button.is-loading:disabled{background:var(--button);color:var(--button-text)}
+.send-button.is-loading::after{content:"";position:absolute;inset:-5px;border:2px solid var(--line);border-top-color:var(--text);border-right-color:var(--text);border-radius:50%;animation:send-loading .7s linear infinite;pointer-events:none}
+@keyframes send-loading{to{transform:rotate(360deg)}}
+.conversation{min-height:calc(100dvh - 100px);padding:36px 24px 90px;display:grid;place-items:center}
+.conversation-inner{width:100%}
+.final-reveal{text-align:center;max-width:760px;margin:auto}
+.final-reveal h1{font-size:clamp(42px,6.5vw,68px);line-height:1.08;letter-spacing:-.045em;max-width:none;margin:0 0 26px}
+.final-reveal .redirect-notice{justify-content:center;margin-top:0;gap:10px;font-size:13px}
+.final-reveal .reveal-actions{justify-content:center;margin-top:24px}
+.is-complete .help-button{display:none}

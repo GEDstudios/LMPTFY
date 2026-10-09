@@ -1,9 +1,9 @@
-import { MAX_PROMPT_LENGTH, normalizePrompt, buildShareURL, readPromptFromHash, buildChatGPTURL, startChatGPTHandoff, typingPlan, cursorOrbitPoint } from './core.mjs';
+import { MAX_PROMPT_LENGTH, DEMO_TIMING, normalizePrompt, buildShareURL, readPromptFromHash, buildChatGPTURL, startChatGPTHandoff, typingPlan, cursorOrbitPoint, cursorMotionProgress, cursorGlidePoint } from './core.mjs';
 
 const $ = id => document.getElementById(id);
 const $$ = selector => [...document.querySelectorAll(selector)];
 const input = $('promptInput');
-const MIN_STAGE_DURATION_MS = 3000;
+const MIN_STAGE_DURATION_MS = DEMO_TIMING.opening;
 const storage = {
   get(key, fallback) { try { return JSON.parse(localStorage.getItem(`lmptfy:${key}`)) ?? fallback; } catch { return fallback; } },
   set(key, value) { try { localStorage.setItem(`lmptfy:${key}`, JSON.stringify(value)); } catch { /* Private browsing can disable storage. */ } },
@@ -11,7 +11,7 @@ const storage = {
 
 const state = {
   speed: 'slow', mode: 'builder', prompt: '', preview: false,
-  controller: null, draft: '', draftSpeed: 'slow', shareURL: '', listening: false,
+  controller: null, draft: '', draftSpeed: 'slow', shareURL: '',
   cancelRedirect: null,
 };
 function setTheme(theme) {
@@ -35,27 +35,8 @@ function toast(message) {
   toastTimer = setTimeout(() => { el.hidden = true; document.body.append(el); }, 3200);
 }
 
-const popovers = [
-  ['modelButton', 'modelMenu'], ['toolsButton', 'toolsMenu'],
-];
-function closeMenus() {
-  popovers.forEach(([trigger, menu]) => { $(menu).hidden = true; $(trigger).setAttribute('aria-expanded', 'false'); });
-}
-popovers.forEach(([trigger, menu]) => {
-  $(trigger).addEventListener('click', () => {
-    const open = $(menu).hidden;
-    closeMenus();
-    $(menu).hidden = !open;
-    $(trigger).setAttribute('aria-expanded', String(open));
-  });
-});
-document.addEventListener('click', event => {
-  if (!popovers.some(([trigger, menu]) => $(trigger).contains(event.target) || $(menu).contains(event.target))) closeMenus();
-});
-
 function showDialog(id) {
   cancelHandoff();
-  closeMenus();
   const dialog = $(id);
   if (!dialog.open) dialog.showModal();
 }
@@ -90,18 +71,16 @@ input.addEventListener('keydown', event => {
 
 function setSpeed(speed) {
   state.speed = speed === 'slow' ? 'slow' : 'normal';
-  $$('.speed-option').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.speed === state.speed)));
 }
-$$('.speed-option').forEach(button => button.addEventListener('click', () => {
-  setSpeed(button.dataset.speed); closeMenus();
-  $('shareAgain').hidden = true;
-  toast(state.speed === 'slow' ? 'Every. Single. Letter.' : 'Slowly enough to make the point.');
-}));
 
 function cancelHandoff() {
   state.cancelRedirect?.();
   state.cancelRedirect = null;
   $('redirectNotice').hidden = true;
+  if (state.mode === 'complete') {
+    $('finalActions').hidden = false;
+    $('viewerControls').hidden = false;
+  }
 }
 
 function stopPlayback() {
@@ -110,12 +89,13 @@ function stopPlayback() {
   state.controller = null;
   $('demoCursor').hidden = true;
   $('demoGuide').hidden = true;
-  document.body.classList.remove('is-playing');
+  $('sendButton').classList.remove('is-loading');
+  $('sendButton').removeAttribute('aria-busy');
+  document.body.classList.remove('is-playing', 'is-complete');
 }
 
 function resetBuilder({ prompt = '', speed = 'slow', keepLink = false, focus = true } = {}) {
   stopPlayback();
-  stopDictation();
   state.mode = 'builder';
   state.preview = false;
   document.body.classList.remove('is-viewing');
@@ -124,7 +104,7 @@ function resetBuilder({ prompt = '', speed = 'slow', keepLink = false, focus = t
   $('builderControls').hidden = false;
   $('viewerControls').hidden = true;
   $('shareAgain').hidden = !keepLink;
-  $('welcomeHeading').textContent = 'What can I help with?';
+  $('welcomeHeading').textContent = 'LET ME ASK AI FOR YOU';
   input.readOnly = false;
   input.value = prompt;
   $('sendButton').setAttribute('aria-label', 'Create a prompt link');
@@ -132,7 +112,6 @@ function resetBuilder({ prompt = '', speed = 'slow', keepLink = false, focus = t
   if (location.hash) history.replaceState(null, '', location.pathname + location.search);
   setSpeed(speed);
   syncInput();
-  closeMenus();
   window.scrollTo(0, 0);
   if (focus) input.focus({ preventScroll: true });
 }
@@ -141,24 +120,52 @@ $$('[data-action="new"]').forEach(button => button.addEventListener('click', () 
 $$('[data-action="about"]').forEach(button => button.addEventListener('click', () => showDialog('aboutDialog')));
 $('gotIt').addEventListener('click', () => { $('aboutDialog').close(); resetBuilder(); });
 $('themeButton').addEventListener('click', () => {
-  setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'); closeMenus();
+  setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
 });
 function createLink() {
   const prompt = normalizePrompt(input.value);
   if (!prompt || state.mode !== 'builder') return;
-  stopDictation();
   state.prompt = prompt;
   state.shareURL = buildShareURL(location.href, prompt, state.speed);
   $('sharePrompt').textContent = prompt;
   $('shareURL').value = state.shareURL;
   $('copyLink').querySelector('span').textContent = 'Copy link';
   $('copyLink').querySelector('use').setAttribute('href', '#i-copy');
+  $('nativeShare').hidden = !canShareLink();
   $('shareAgain').hidden = false;
   showDialog('shareDialog');
 }
 $('promptForm').addEventListener('submit', event => { event.preventDefault(); createLink(); });
 $('shareAgain').addEventListener('click', createLink);
 $('shareURL').addEventListener('click', () => $('shareURL').select());
+
+function shareData() {
+  return { title: 'Let Me Ask AI For You', url: state.shareURL };
+}
+function canShareLink() {
+  if (typeof navigator.share !== 'function') return false;
+  try {
+    return typeof navigator.canShare !== 'function' || navigator.canShare(shareData());
+  } catch {
+    return false;
+  }
+}
+$('nativeShare').addEventListener('click', async () => {
+  const button = $('nativeShare');
+  if (!state.shareURL || button.disabled) return;
+  button.disabled = true;
+  try {
+    // Invoke directly from the tap so the browser retains user activation.
+    await navigator.share(shareData());
+  } catch (error) {
+    if (error.name !== 'AbortError') {
+      toast('Sharing is unavailable here. Use Copy link instead.');
+      $('copyLink').focus();
+    }
+  } finally {
+    button.disabled = false;
+  }
+});
 
 async function copyText(text) {
   try {
@@ -187,17 +194,6 @@ $('copyLink').addEventListener('click', async () => {
     toast('Link selected. Press Ctrl+C or ⌘C to copy.');
   }
 });
-$('copyPrompt').addEventListener('click', async () => {
-  if (await copyText(state.prompt)) toast('Prompt copied.');
-  else {
-    const range = document.createRange();
-    range.selectNodeContents($('userMessage'));
-    const selection = window.getSelection();
-    selection.removeAllRanges(); selection.addRange(range);
-    toast('Prompt selected. Press Ctrl+C or ⌘C to copy.');
-  }
-});
-
 function delay(ms, signal) {
   return new Promise((resolve, reject) => {
     if (signal.aborted) return reject(new DOMException('Cancelled', 'AbortError'));
@@ -217,11 +213,16 @@ async function waitForStep(startedAt, signal) {
   const remaining = MIN_STAGE_DURATION_MS - (performance.now() - startedAt);
   await delay(Math.max(0, remaining), signal);
 }
-function moveCursor(x, y, duration = 800, easing = 'cubic-bezier(.35,.05,.24,1)') {
+let cursorPosition = { x: 0, y: 0, tilt: 0 };
+function paintCursor(point) {
+  cursorPosition = { x: point.x, y: point.y, tilt: point.tilt || 0 };
+  $('demoCursor').style.transform = `translate(${point.x.toFixed(2)}px, ${point.y.toFixed(2)}px) rotate(${cursorPosition.tilt.toFixed(2)}deg)`;
+}
+function moveCursor(x, y, duration = 140, easing = 'cubic-bezier(.25,.1,.25,1)') {
   const cursor = $('demoCursor');
   cursor.style.transitionDuration = `${duration}ms`;
   cursor.style.transitionTimingFunction = easing;
-  cursor.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px)`;
+  paintCursor({ x, y, tilt: 0 });
 }
 function createTypingCursor(signal) {
   // A hidden text mirror lets the browser measure wrapping, Unicode, and RTL text.
@@ -240,8 +241,7 @@ function createTypingCursor(signal) {
     'tabSize', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft',
     'whiteSpace', 'wordBreak', 'overflowWrap',
   ];
-  function follow(duration = 60) {
-    if (signal.aborted) return;
+  function position() {
     const style = getComputedStyle(input);
     for (const property of properties) mirror.style[property] = style[property];
     // clientWidth excludes the scrollbar, so long prompts wrap at the same column.
@@ -252,11 +252,15 @@ function createTypingCursor(signal) {
     const end = caret.getBoundingClientRect();
     const x = box.left + input.clientLeft + end.left - origin.left - input.scrollLeft + 5;
     const y = box.top + input.clientTop + end.bottom - origin.top - input.scrollTop + 3;
-    moveCursor(
-      Math.max(8, Math.min(x, window.innerWidth - 36)),
-      Math.max(8, Math.min(y, window.innerHeight - 42)),
-      duration, 'linear',
-    );
+    return {
+      x: Math.max(8, Math.min(x, window.innerWidth - 36)),
+      y: Math.max(8, Math.min(y, window.innerHeight - 42)),
+    };
+  }
+  function follow(duration = 140) {
+    if (signal.aborted) return;
+    const point = position();
+    moveCursor(point.x, point.y, duration);
   }
   const refresh = () => follow(0);
   function stop() {
@@ -268,24 +272,22 @@ function createTypingCursor(signal) {
   input.addEventListener('scroll', refresh);
   window.addEventListener('resize', refresh);
   signal.addEventListener('abort', stop, { once: true });
-  return { follow, stop };
+  return { position, follow, stop };
 }
-function orbitCursor(rect, signal, duration = 2200) {
+function animateCursor(pointAt, signal, duration) {
   return new Promise((resolve, reject) => {
     if (signal.aborted) return reject(new DOMException('Cancelled', 'AbortError'));
-    const cursor = $('demoCursor');
     const startedAt = performance.now();
     let frameId;
-    cursor.style.transitionDuration = '0ms';
-    cursor.classList.remove('clicked');
+    $('demoCursor').style.transitionDuration = '0ms';
     function abort() {
       cancelAnimationFrame(frameId);
       reject(new DOMException('Cancelled', 'AbortError'));
     }
     function frame(now) {
+      if (signal.aborted) return;
       const progress = Math.min(1, Math.max(0, now - startedAt) / duration);
-      const point = cursorOrbitPoint(rect, { width: window.innerWidth, height: window.innerHeight }, progress);
-      cursor.style.transform = `translate(${point.x.toFixed(2)}px, ${point.y.toFixed(2)}px) rotate(${point.tilt.toFixed(2)}deg)`;
+      paintCursor(pointAt(progress));
       if (progress === 1) {
         signal.removeEventListener('abort', abort);
         resolve();
@@ -294,6 +296,20 @@ function orbitCursor(rect, signal, duration = 2200) {
     signal.addEventListener('abort', abort, { once: true });
     frame(startedAt);
   });
+}
+function orbitCursor(rect, signal, duration = DEMO_TIMING.composerOrbit) {
+  $('demoCursor').classList.remove('clicked');
+  const viewport = { width: window.innerWidth, height: window.innerHeight };
+  return animateCursor(progress => cursorOrbitPoint(rect, viewport, cursorMotionProgress(progress)), signal, duration);
+}
+function glideCursor(target, signal, duration) {
+  const from = { ...cursorPosition };
+  const to = {
+    x: Math.max(8, Math.min(target.x, window.innerWidth - 36)),
+    y: Math.max(8, Math.min(target.y, window.innerHeight - 42)),
+    tilt: target.tilt || 0,
+  };
+  return animateCursor(progress => cursorGlidePoint(from, to, progress), signal, duration);
 }
 function clickCursor() {
   const cursor = $('demoCursor');
@@ -305,13 +321,14 @@ function clickCursor() {
 function finishPlayback() {
   stopPlayback();
   state.mode = 'complete';
+  document.body.classList.add('is-complete');
+  $('finalActions').hidden = true;
+  $('viewerControls').hidden = !state.preview;
   $('startScreen').hidden = true;
   $('conversation').hidden = false;
-  $('userMessage').textContent = state.prompt;
   $('openChatGPT').href = buildChatGPTURL(state.prompt);
   $('skipButton').hidden = true;
   $('exitPreview').hidden = !state.preview;
-  $('userMessage').scrollTop = 0;
   window.scrollTo(0, 0);
   $('revealHeading').focus({ preventScroll: true });
   $('redirectNotice').hidden = false;
@@ -325,9 +342,7 @@ function finishPlayback() {
 
 async function playPrompt(prompt, speed = 'slow', preview = false) {
   stopPlayback();
-  stopDictation();
   $$('dialog[open]').forEach(dialog => dialog.close());
-  closeMenus();
   state.mode = 'playing';
   state.prompt = normalizePrompt(prompt);
   state.preview = preview;
@@ -341,8 +356,9 @@ async function playPrompt(prompt, speed = 'slow', preview = false) {
   $('viewerControls').hidden = false;
   $('previewLabel').hidden = !preview;
   $('exitPreview').hidden = !preview;
+  $('viewerCreate').hidden = preview;
   $('skipButton').hidden = false;
-  $('welcomeHeading').textContent = 'What can I help with?';
+  $('welcomeHeading').textContent = 'LET ME ASK AI FOR YOU';
   input.value = ''; input.readOnly = true; syncInput();
   $('sendButton').setAttribute('aria-label', 'Send prompt in demonstration');
   $('sendButton').title = 'Send prompt in demonstration';
@@ -355,48 +371,35 @@ async function playPrompt(prompt, speed = 'slow', preview = false) {
   let typingCursor;
   try {
     await orbitCursor($('promptForm').getBoundingClientRect(), signal);
-    let box = input.getBoundingClientRect();
-    moveCursor(box.left + Math.min(150, box.width * .4), box.top + 14, 450);
-    await delay(500, signal);
+    typingCursor = createTypingCursor(signal);
+    await glideCursor(typingCursor.position(), signal, DEMO_TIMING.composerApproach);
     clickCursor(); input.focus({ preventScroll: true });
-    await delay(300, signal);
+    await delay(200, signal);
     await waitForStep(stepStartedAt, signal);
     setStep(1, 'Now, use your words.', 'The very same question you just asked someone else.');
-    typingCursor = createTypingCursor(signal);
-    typingCursor.follow(150);
-    await delay(150, signal);
-    const plan = typingPlan(state.prompt, speed);
-    const typingDeadline = performance.now() + plan.duration;
-    for (let index = 0; index < plan.chars.length; index += plan.chunk) {
-      if (performance.now() >= typingDeadline) {
-        input.value = state.prompt;
-        input.setSelectionRange(input.value.length, input.value.length);
-        syncInput();
-        input.scrollTop = input.scrollHeight;
-        typingCursor.follow();
-        break;
-      }
-      input.value += plan.chars.slice(index, index + plan.chunk).join('');
+    const plan = typingPlan(state.prompt);
+    for (let index = 0; index < plan.chars.length; index++) {
+      if (index > 0) await delay(plan.interval, signal);
+      input.value += plan.chars[index];
       input.setSelectionRange(input.value.length, input.value.length);
       syncInput();
       input.scrollTop = input.scrollHeight;
-      typingCursor.follow(Math.min(60, plan.interval));
-      const last = plan.chars[Math.min(index + plan.chunk - 1, plan.chars.length - 1)];
-      const pause = Math.min(plan.interval + (/[.,?!]/.test(last) ? 60 : 0), plan.maxDelay);
-      await delay(Math.max(0, Math.min(pause, typingDeadline - performance.now())), signal);
+      typingCursor.follow(140);
     }
+    await delay(DEMO_TIMING.typingHold, signal);
     typingCursor.stop();
     $('sendButton').disabled = false;
     setStep(2, 'Press the big arrow.', 'Truly groundbreaking stuff.');
-    box = $('sendButton').getBoundingClientRect();
+    const box = $('sendButton').getBoundingClientRect();
     const orbitStart = cursorOrbitPoint(box, { width: window.innerWidth, height: window.innerHeight }, 0);
-    moveCursor(orbitStart.x, orbitStart.y, 180);
-    await delay(180, signal);
-    await orbitCursor(box, signal, 1000);
-    moveCursor(box.left + box.width / 2, box.top + box.height / 2, 140);
-    await delay(140, signal);
+    await glideCursor(orbitStart, signal, DEMO_TIMING.sendApproach);
+    await orbitCursor(box, signal, DEMO_TIMING.sendOrbit);
+    await glideCursor({ x: box.left + box.width / 2, y: box.top + box.height / 2 }, signal, DEMO_TIMING.sendClickApproach);
     clickCursor();
-    await delay(100, signal);
+    $('sendButton').classList.add('is-loading');
+    $('sendButton').setAttribute('aria-busy', 'true');
+    $('sendButton').disabled = true;
+    await delay(DEMO_TIMING.loading, signal);
     finishPlayback();
   } catch (error) {
     if (error.name !== 'AbortError') { finishPlayback(); console.error('Playback could not finish:', error); }
@@ -412,49 +415,11 @@ $('previewButton').addEventListener('click', () => {
 $('exitPreview').addEventListener('click', () => resetBuilder({ prompt: state.draft, speed: state.draftSpeed, keepLink: true }));
 $('skipButton').addEventListener('click', finishPlayback);
 $('replayButton').addEventListener('click', () => void playPrompt(state.prompt, state.speed, state.preview));
-$('makeOwn').addEventListener('click', () => resetBuilder());
 $('cancelRedirect').addEventListener('click', () => { cancelHandoff(); toast("Staying here. Open ChatGPT whenever you're ready."); });
 $('openChatGPT').addEventListener('click', cancelHandoff);
 window.addEventListener('pagehide', cancelHandoff);
 
-let recognition;
-function stopDictation() {
-  const wasListening = state.listening;
-  state.listening = false;
-  $('micButton').classList.remove('listening');
-  $('micButton').setAttribute('aria-label', 'Dictate a prompt');
-  if (recognition && wasListening) {
-    try { recognition.stop(); } catch { /* Recognition may already have ended. */ }
-  }
-}
-$('micButton').addEventListener('click', () => {
-  if (state.mode !== 'builder') return;
-  if (state.listening) { stopDictation(); return; }
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SpeechRecognition) { toast('Voice input is unavailable here. Type your prompt to get started.'); input.focus(); return; }
-  recognition = new SpeechRecognition();
-  recognition.lang = navigator.language || 'en-US';
-  recognition.continuous = false;
-  recognition.interimResults = true;
-  const original = input.value.trim();
-  recognition.onresult = event => {
-    const spoken = Array.from(event.results).map(result => result[0].transcript).join(' ');
-    input.value = `${original}${original ? ' ' : ''}${spoken}`.slice(0, MAX_PROMPT_LENGTH);
-    syncInput();
-  };
-  recognition.onend = stopDictation;
-  recognition.onerror = event => {
-    stopDictation();
-    toast(event.error === 'not-allowed' ? 'Microphone access is off. You can type your prompt instead.' : "Couldn't hear that. Try again or type your prompt.");
-  };
-  try {
-    recognition.start(); state.listening = true;
-    $('micButton').classList.add('listening'); $('micButton').setAttribute('aria-label', 'Stop dictation');
-  } catch { stopDictation(); toast('Voice input is unavailable. You can type your prompt instead.'); }
-});
-
 document.addEventListener('keydown', event => {
-  if (event.key === 'Escape') { closeMenus(); }
   if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === 'o') {
     event.preventDefault(); $$('dialog[open]').forEach(dialog => dialog.close()); resetBuilder();
   }

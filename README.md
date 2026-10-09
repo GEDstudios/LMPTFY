@@ -1,8 +1,18 @@
-# Let Me Prompt That For You
+# Let Me Ask AI For You
 
-A minimal ChatGPT-style demonstration: a cursor slowly clicks the message box, types your question, and presses send. Large sarcastic captions guide each step, with an oversized final punchline. After the reveal and a three-second countdown, the page redirects to ChatGPT with the question passed to its draft input. Replay or Stay here cancels the countdown.
+A buildless, responsive parody inspired by Let Me Google That For You. Write a question and create a readable link. The recipient watches a cursor circle the composer, type the question, circle Send, and open ChatGPT with the question prefilled using its `prompt` parameter.
 
-This export is ready for GitHub Pages. It needs no build step, dependencies, API keys, or backend.
+The main page has a large **LET ME ASK AI FOR YOU** heading, no model button, and no Tools menu. Appearance settings live in the About dialog. The microphone has been removed. Reduced-motion support, native sharing, and Copy link remain available. The header's Make your own action opens a fresh composer and cancels playback. The final countdown shows only the punchline and a small countdown / Stay here control; choosing Stay here reveals the manual Open in ChatGPT and Replay buttons and restores the header action. Preview preserves the creator's draft through Exit preview.
+
+## Timing
+
+- Opening: at least 4.5 seconds, including a slightly faster 3-second orbit around the composer and an 800 ms curved glide to the actual text caret. Orbits gently accelerate and slow down at their endpoints.
+- Typing: one visible character every 500 ms. Emoji and combining characters remain together where Intl.Segmenter is available. Long questions retain this pace; there is no acceleration or typing time cap.
+- After typing: a 1.5-second hold, with the cursor at the end of the text.
+- Send: an 800 ms curved approach, a 2.5-second orbit, and a 450 ms glide into the button. Clicking shows a small loading ring around Send for exactly one second before the final screen.
+- Final reveal: ChatGPT opens after four seconds. Stay here, Make your own, Replay, Exit preview, or opening a dialog cancels the pending redirect.
+
+Timing values are centralized in `DEMO_TIMING` in `core.mjs`. The older speed parameters still parse for link compatibility; all demonstrations now use the requested half-second cadence. Skip and reduced-motion preferences can bypass the animation.
 
 ## Publish on GitHub Pages
 
@@ -46,18 +56,20 @@ npm test
 
 No `npm install` is needed. Checks cover Unicode prompt links, malformed links, URL encoding, countdown timing, and redirect cancellation. The actual ChatGPT destination interface was not browser-verified in the build environment.
 
-## Behavior and customization
 
-The ChatGPT handoff uses `https://chatgpt.com/?prompt=...`. The question is URL-encoded; the page does not click Send inside ChatGPT. This destination behavior is controlled by ChatGPT. To change the countdown, edit `remaining = 3` inside `startChatGPTHandoff` in `core.mjs`.
 
-The interface is a single centered composer. It includes light/dark appearance in the ChatGPT dropdown, two paced typing speeds, optional browser dictation, and reduced-motion support. New links default to the more deliberate speed. During “Behold. A text box.”, the cursor immediately makes a 2.2-second clockwise loop around the composer with a slight tilt, then clicks inside. The opening instruction stays visible for at least three seconds. Typing moves straight into the Send animation as soon as the text is complete, without a minimum-stage hold. The first letter appears at about 3.2 seconds. The loop stays within the viewport and cancels with playback. While typing, the cursor follows the end of the text, including wrapped lines and scrolling; its position is measured using the same typography and available width as the input. The gap between letters is 78 ms by default, a 20% increase. Typing is capped at 10.8 seconds, including punctuation pauses, and the current step gently pulses to show activity. Prompt links contain their question in the URL fragment; only the appearance preference is saved in local storage.
+## Development and verification
 
-This is an independent parody, not affiliated with OpenAI. It demonstrates prompts and does not generate AI answers.
+The deployable files are at the root of this ZIP. No dependencies or build step are required. Run `npm test` for link round trips, malformed payloads, Unicode text, typing cadence, cursor orbits, smooth bounded transitions, redirect timing, cancellation, and JavaScript syntax.
 
-The enabled Send button gets a one-second clockwise cursor orbit before the click. Moving to Send, circling, clicking, and revealing the final screen take about 1.5 seconds after the last letter. The final reveal redirects after three seconds. The logo and favicon use the official SVG from https://chatgpt.com/cdn/assets/favicon-l4nq08hd.svg.
+Browser QA and real-device checks remain outstanding. ChatGPT controls the destination's prefill behavior. Code checks do not confirm signed-in, signed-out, or in-app-browser behavior.
 
-## Readable share links
 
-New links include the question in readable form, for example `#ask=Why+is+the+sky+blue%3F`. Hebrew, other languages, and emoji stay readable in the copied link; reserved characters and line breaks are safely escaped. The default speed needs no extra URL parameter. Old `#p=...` links remain supported with their original speed.
 
-Links still contain the full question, so longer questions produce longer links. Very short codes need a persistent URL-shortening service or backend to store each question. This export remains self-contained and works on static GitHub Pages without one.
+## Readable links and privacy
+
+Links use the page's current origin and path, so the same files work on GitHub Pages, including repository subdirectories and custom domains. New links include the question in readable form, for example `#ask=Why+is+the+sky+blue%3F`. Unicode and emoji stay readable; reserved characters are escaped. Old `#p=...` links remain supported.
+
+The full question is in the URL fragment, not stored by an application server. Encoding is not encryption. Long questions create long links; very short codes would require a backend. Only the appearance preference is stored locally. Native sharing sends the link and product title; Copy link is always available, and cancelling native sharing makes no changes.
+
+This is an independent parody, not affiliated with OpenAI. It does not generate an AI answer. The favicon uses the official SVG from https://chatgpt.com/cdn/assets/favicon-l4nq08hd.svg.

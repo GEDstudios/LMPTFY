@@ -4,9 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#ffffff">
-  <title>Let Me Prompt That For You</title>
-  <meta name="description" content="For the questions that could have been a prompt. Make a link, send a little nudge, and let the typing do the talking.">
-  <meta property="og:title" content="Let Me Prompt That For You">
+  <title>Let Me Ask AI For You — LMGTFY for ChatGPT</title>
+  <meta name="description" content="Like Let Me Google That For You, for ChatGPT. Create a funny link that types the question, explains the obvious, and opens ChatGPT.">
+  <meta property="og:title" content="Let Me Ask AI For You">
   <meta property="og:description" content="A familiar chat window. A very helpful little demonstration.">
   <meta property="og:type" content="website">
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
@@ -21,7 +21,6 @@
       <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m7 10 5 5 5-5"/></symbol>
       <symbol id="i-tools" viewBox="0 0 24 24"><path d="M4 7h9m4 0h3M4 17h3m4 0h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></symbol>
       <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M12 19V5m-6 6 6-6 6 6"/></symbol>
-      <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11v1a7 7 0 0 0 14 0v-1M12 19v3"/></symbol>
       <symbol id="i-link" viewBox="0 0 24 24"><path d="m10 13 4-4m-6 7-1.5 1.5a4.2 4.2 0 0 1-6-6L5 7a4.2 4.2 0 0 1 6 0m2 10a4.2 4.2 0 0 0 6 0l4.5-4.5a4.2 4.2 0 0 0-6-6L16 8" transform="translate(0 0) scale(.92)"/></symbol>
       <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="13" rx="2"/><path d="M15 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h3"/></symbol>
       <symbol id="i-play" viewBox="0 0 24 24"><path d="m8 5 11 7-11 7z"/></symbol>
@@ -38,17 +37,6 @@
 
   <main class="main" id="main">
     <header class="topbar">
-      <div class="header-left">
-        <button class="icon-button new-prompt-button" data-action="new" aria-label="New prompt" title="New prompt"><svg class="icon"><use href="#i-edit"/></svg></button>
-        <div class="model-wrap">
-          <button class="model-button" id="modelButton" aria-expanded="false" aria-controls="modelMenu"><svg class="icon logo" aria-hidden="true"><use href="#i-logo"/></svg>ChatGPT<svg class="icon"><use href="#i-chevron"/></svg></button>
-          <div class="popover model-menu" id="modelMenu" hidden>
-            <div class="model-info"><svg class="icon logo"><use href="#i-logo"/></svg><div><strong>Familiar, isn't it?</strong><p>This is Let Me Prompt That For You.<br>A tiny tutorial. A gentle nudge.</p></div></div>
-            <button class="menu-item" id="themeButton"><svg class="icon"><use href="#i-moon"/></svg><span>Dark appearance</span></button>
-            <button class="menu-item" data-action="about"><svg class="icon"><use href="#i-info"/></svg><span>How it works</span></button>
-          </div>
-        </div>
-      </div>
       <div class="header-right" id="builderControls">
         <button class="quiet-button" id="shareAgain" hidden><svg class="icon"><use href="#i-share"/></svg><span>Share</span></button>
       </div>
@@ -56,35 +44,24 @@
         <span class="preview-label" id="previewLabel" hidden>Preview</span>
         <button class="quiet-button" id="skipButton">Skip animation<svg class="icon"><use href="#i-chevron"/></svg></button>
         <button class="quiet-button" id="exitPreview" hidden><svg class="icon"><use href="#i-close"/></svg>Exit preview</button>
+        <button class="button primary viewer-create-button" id="viewerCreate" data-action="new">Make your own</button>
       </div>
     </header>
 
     <section class="start-screen" id="startScreen" aria-labelledby="welcomeHeading">
       <div class="start-inner">
-        <h1 id="welcomeHeading">What can I help with?</h1>
+        <h1 id="welcomeHeading">LET ME ASK AI FOR YOU</h1>
         <form class="composer" id="promptForm">
           <label class="sr-only" for="promptInput">The prompt to type in your shared demonstration</label>
           <textarea id="promptInput" rows="1" placeholder="Ask anything" maxlength="2000" enterkeyhint="send" autocomplete="off" spellcheck="true" dir="auto"></textarea>
           <div class="composer-bottom">
-            <div class="composer-left">
-              <div class="menu-wrap">
-                <button type="button" class="tools-button" id="toolsButton" aria-expanded="false" aria-controls="toolsMenu"><svg class="icon"><use href="#i-tools"/></svg><span>Tools</span></button>
-                <div class="popover tools-menu" id="toolsMenu" hidden>
-                  <span class="menu-label">How slowly shall we explain this?</span>
-                  <button type="button" class="menu-item speed-option" data-speed="normal" aria-pressed="false"><span class="option-text"><strong>Slow &amp; obvious</strong><small>A leisurely demonstration</small></span><svg class="icon check"><use href="#i-check"/></svg></button>
-                  <button type="button" class="menu-item speed-option" data-speed="slow" aria-pressed="true"><span class="option-text"><strong>Painfully obvious</strong><small>Every. Single. Letter.</small></span><svg class="icon check"><use href="#i-check"/></svg></button>
-                </div>
-              </div>
-            </div>
             <div class="composer-right">
               <span class="character-count" id="characterCount" hidden></span>
-              <button type="button" class="icon-button mic-button" id="micButton" aria-label="Dictate a prompt" title="Dictate a prompt"><svg class="icon"><use href="#i-mic"/></svg></button>
               <button type="submit" class="send-button" id="sendButton" aria-label="Create a prompt link" title="Create a prompt link" disabled><svg class="icon"><use href="#i-arrow"/></svg></button>
             </div>
           </div>
         </form>
         <div class="builder-intro" id="builderIntro">
-          <p>Let me prompt that for you.</p>
           <span>Type a question. Make a link. Explain the obvious.</span>
         </div>
         <div class="demo-guide" id="demoGuide" aria-live="polite" aria-atomic="true" hidden>
@@ -95,34 +72,24 @@
       </div>
     </section>
 
-    <section class="conversation" id="conversation" aria-label="Your prompt demonstration" hidden>
+    <section class="conversation" id="conversation" aria-labelledby="revealHeading" hidden>
       <div class="conversation-inner">
-        <div class="user-message" id="userMessage" dir="auto"></div>
-        <div class="assistant-message">
-          <div class="assistant-mark"><svg class="icon logo"><use href="#i-logo"/></svg></div>
-          <div class="reveal-content">
-            <span class="reveal-eyebrow">Let me prompt that for you.</span>
-            <h1 id="revealHeading" tabindex="-1"><span>There.</span>Was that so hard?</h1>
-            <p>An entire question. All by yourself.<br>We knew you had it in you.</p>
-            <div class="reveal-actions">
-              <a class="button primary" id="openChatGPT" href="https://chatgpt.com/" rel="noreferrer">Open in ChatGPT<svg class="icon"><use href="#i-external"/></svg></a>
-              <button class="button secondary" id="replayButton"><svg class="icon"><use href="#i-replay"/></svg>Replay</button>
-            </div>
-            <div class="redirect-notice" id="redirectNotice" hidden>
-              <span id="redirectStatus" role="status" aria-live="polite">Opening ChatGPT in 6…</span>
-              <button id="cancelRedirect">Stay here</button>
-            </div>
-            <div class="message-actions">
-              <button class="icon-button muted" id="copyPrompt" aria-label="Copy prompt" title="Copy prompt"><svg class="icon"><use href="#i-copy"/></svg></button>
-              <button class="text-button" id="makeOwn">Make your own link<svg class="icon"><use href="#i-arrow"/></svg></button>
-            </div>
+        <div class="reveal-content final-reveal">
+          <h1 id="revealHeading" tabindex="-1"><span>There.</span>Was that so hard?</h1>
+          <div class="redirect-notice" id="redirectNotice" hidden>
+            <span id="redirectStatus" role="status" aria-live="polite">Opening ChatGPT in 4…</span>
+            <button id="cancelRedirect">Stay here</button>
+          </div>
+          <div class="reveal-actions" id="finalActions" hidden>
+            <a class="button primary" id="openChatGPT" href="https://chatgpt.com/" rel="noreferrer">Open in ChatGPT<svg class="icon"><use href="#i-external"/></svg></a>
+            <button class="button secondary" id="replayButton"><svg class="icon"><use href="#i-replay"/></svg>Replay</button>
           </div>
         </div>
       </div>
     </section>
 
-    <footer class="footer"><span>Let Me Prompt That For You</span><span class="footer-dot">·</span><button data-action="about">An independent parody</button></footer>
-    <button class="help-button" data-action="about" aria-label="About Let Me Prompt That For You" title="How it works">?</button>
+    <footer class="footer"><span>Let Me Ask AI For You</span><span class="footer-dot">·</span><button data-action="about">An independent parody</button></footer>
+    <button class="help-button" data-action="about" aria-label="About Let Me Ask AI For You" title="How it works">?</button>
   </main>
 
   <div class="demo-cursor" id="demoCursor" aria-hidden="true" hidden><svg width="28" height="34" viewBox="0 0 28 34"><path d="M3 2v25l6.8-6.3 5.5 11 4.4-2.3-5.3-10.6H24z" fill="#171717" stroke="white" stroke-width="1.8" stroke-linejoin="round"/></svg><span class="cursor-click"></span></div>
@@ -130,12 +97,16 @@
 
   <dialog class="modal share-modal" id="shareDialog" aria-labelledby="shareTitle">
     <div class="modal-top"><span class="modal-kicker"><svg class="icon"><use href="#i-link"/></svg>A very helpful link</span><button class="icon-button" data-close aria-label="Close"><svg class="icon"><use href="#i-close"/></svg></button></div>
-    <h2 id="shareTitle">Let me prompt that for you.</h2>
+    <h2 id="shareTitle">Let me ask AI for you.</h2>
     <p class="modal-description">Send the link. We'll handle the demonstration.</p>
     <div class="prompt-preview" id="sharePrompt" dir="auto"></div>
     <label class="sr-only" for="shareURL">Your shareable prompt link</label>
     <div class="share-url-wrap"><svg class="icon"><use href="#i-link"/></svg><input id="shareURL" readonly spellcheck="false"></div>
-    <div class="modal-actions"><button class="button secondary" id="previewButton"><svg class="icon"><use href="#i-play"/></svg>Preview</button><button class="button primary" id="copyLink"><svg class="icon"><use href="#i-copy"/></svg><span>Copy link</span></button></div>
+    <div class="modal-actions">
+      <button class="button secondary" id="previewButton"><svg class="icon"><use href="#i-play"/></svg>Preview</button>
+      <button class="button secondary" id="nativeShare" hidden><svg class="icon"><use href="#i-share"/></svg>Share…</button>
+      <button class="button primary" id="copyLink"><svg class="icon"><use href="#i-copy"/></svg><span>Copy link</span></button>
+    </div>
     <p class="share-note">The demonstration ends in ChatGPT with the question ready to send.</p>
   </dialog>
 
@@ -145,6 +116,7 @@
     <p class="modal-description">Like “Let Me Google That For You,” with a very familiar message box.</p>
     <ol class="how-steps"><li><span>1</span><div><strong>You write the question.</strong><p>The one they probably could've asked themselves.</p></div></li><li><span>2</span><div><strong>You send the link.</strong><p>They watch the cursor click, type, and press send.</p></div></li><li><span>3</span><div><strong>The penny drops.</strong><p>After a short countdown, ChatGPT opens with their question ready in the message box.</p></div></li></ol>
     <button class="button primary full-width" id="gotIt">Got it. Let's make a link.</button>
+    <button class="quiet-button about-appearance" id="themeButton"><svg class="icon"><use href="#i-moon"/></svg><span>Dark appearance</span></button>
     <p class="about-note">An independent parody, not affiliated with OpenAI. This page demonstrates a prompt; it doesn't generate an AI answer. Prompts are included in their links.</p>
   </dialog>
 

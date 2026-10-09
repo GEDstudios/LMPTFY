@@ -1,4 +1,16 @@
 export const MAX_PROMPT_LENGTH = 2000;
+export const DEMO_TIMING = Object.freeze({
+  opening: 4500,
+  composerOrbit: 3000,
+  composerApproach: 800,
+  letter: 500,
+  typingHold: 1500,
+  sendOrbit: 2500,
+  sendApproach: 800,
+  sendClickApproach: 450,
+  loading: 1000,
+  redirect: 4000,
+});
 
 export function normalizePrompt(value) {
   if (typeof value !== 'string') return '';
@@ -57,31 +69,30 @@ export function buildChatGPTURL(prompt) {
 
 export function startChatGPTHandoff(prompt, { onTick, navigate, setTimer = setTimeout, clearTimer = clearTimeout }) {
   const url = buildChatGPTURL(prompt);
-  let remaining = 3;
+  let remaining = DEMO_TIMING.redirect;
   let timer;
   let cancelled = false;
   function tick() {
     if (cancelled) return;
-    onTick(remaining);
+    onTick(remaining / 1000);
     if (remaining === 0) {
       cancelled = true;
       navigate(url);
       return;
     }
-    remaining -= 1;
-    timer = setTimer(tick, 1000);
+    const interval = Math.min(1000, remaining);
+    timer = setTimer(() => { remaining -= interval; tick(); }, interval);
   }
   tick();
   return () => { cancelled = true; clearTimer(timer); };
 }
 
-export function typingPlan(prompt, speed) {
-  const chars = Array.from(prompt);
-  const duration = speed === 'slow' ? 10800 : 7800;
-  const interval = speed === 'slow' ? 78 : 50.4;
-  const chunk = Math.max(1, Math.ceil(chars.length * interval / duration));
-  const frames = Math.max(1, Math.ceil(chars.length / chunk));
-  return { chars, interval, chunk, duration, maxDelay: duration / frames };
+export function typingPlan(prompt) {
+  const chars = typeof Intl.Segmenter === 'function'
+    ? Array.from(new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(prompt), item => item.segment)
+    : Array.from(prompt);
+  const interval = DEMO_TIMING.letter;
+  return { chars, interval, duration: Math.max(0, chars.length - 1) * interval };
 }
 
 export function cursorOrbitPoint(rect, viewport, progress) {
@@ -98,5 +109,25 @@ export function cursorOrbitPoint(rect, viewport, progress) {
     x: (left + right) / 2 + Math.cos(angle) * (right - left) / 2,
     y: (top + bottom) / 2 + Math.sin(angle) * (bottom - top) / 2,
     tilt: Math.sin(turn) * 10,
+  };
+}
+
+export function cursorMotionProgress(progress) {
+  const clamped = Math.max(0, Math.min(1, progress));
+  return (1 - Math.cos(Math.PI * clamped)) / 2;
+}
+
+export function cursorGlidePoint(from, to, progress) {
+  const t = cursorMotionProgress(progress);
+  const u = 1 - t;
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const arc = Math.max(0, Math.min(44, Math.hypot(dx, dy) * .15, Math.min(from.y, to.y) - 8));
+  const control1 = { x: from.x + dx * .3, y: from.y + dy * .2 - arc };
+  const control2 = { x: from.x + dx * .7, y: from.y + dy * .8 - arc };
+  return {
+    x: u ** 3 * from.x + 3 * u ** 2 * t * control1.x + 3 * u * t ** 2 * control2.x + t ** 3 * to.x,
+    y: u ** 3 * from.y + 3 * u ** 2 * t * control1.y + 3 * u * t ** 2 * control2.y + t ** 3 * to.y,
+    tilt: (from.tilt || 0) * u + (to.tilt || 0) * t,
   };
 }
